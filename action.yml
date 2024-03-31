@@ -108,19 +108,19 @@ runs:
           ${{ env.CONVENTIONAL_CHANGELOG_CONVENTIONALCOMMITS_VERSION }} \
           "
 
-        # Run normal publishing if releasing is not enabled or if no release was created
-      - name: Publish with Gradle
-        if: ${{ inputs.release != 'true' || steps.release.outputs.new_release_published == 'false' ) }}
-        env:
-          # For Gradle execution
-          # FIXME to test - can these be passed from the caller of the composite action?
-          # ORG_GRADLE_PROJECT_wetfArtifactoryUser: ${{ secrets.WETF_ARTIFACTORY_USER }}
-          # ORG_GRADLE_PROJECT_wetfArtifactoryPassword: ${{ secrets.WETF_ARTIFACTORY_PASSWORD }}
-          # JAVA_TOOL_OPTIONS: ${{ inputs.java-options }}
+      # Run normal publishing if releasing is not enabled or if no release was created
+    - name: Publish with Gradle
+      if: ${{ inputs.release != 'true' || steps.release.outputs.new_release_published == 'false' ) }}
+      env:
+        # For Gradle execution
+        # FIXME to test - can these be passed from the caller of the composite action?
+        # ORG_GRADLE_PROJECT_wetfArtifactoryUser: ${{ secrets.WETF_ARTIFACTORY_USER }}
+        # ORG_GRADLE_PROJECT_wetfArtifactoryPassword: ${{ secrets.WETF_ARTIFACTORY_PASSWORD }}
+        # JAVA_TOOL_OPTIONS: ${{ inputs.java-options }}
 
-          # e.g. for pulling images for testcontainers
-          # ORG_GRADLE_PROJECT_dockerHubUsername: ${{ secrets.DOCKER_HUB_USERNAME }}
-          # ORG_GRADLE_PROJECT_dockerHubPassword: ${{ secrets.DOCKER_HUB_PASSWORD }}
-          # ORG_GRADLE_PROJECT_dockerHubEmail: ${{ secrets.DOCKER_HUB_EMAIL }}
-          # ORG_GRADLE_PROJECT_dockerHost: "unix:///var/run/docker.sock"
-        run: ./gradlew ${{ inputs.publish-tasks }}
+        # e.g. for pulling images for testcontainers
+        # ORG_GRADLE_PROJECT_dockerHubUsername: ${{ secrets.DOCKER_HUB_USERNAME }}
+        # ORG_GRADLE_PROJECT_dockerHubPassword: ${{ secrets.DOCKER_HUB_PASSWORD }}
+        # ORG_GRADLE_PROJECT_dockerHubEmail: ${{ secrets.DOCKER_HUB_EMAIL }}
+        # ORG_GRADLE_PROJECT_dockerHost: "unix:///var/run/docker.sock"
+      run: ./gradlew ${{ inputs.publish-tasks }}

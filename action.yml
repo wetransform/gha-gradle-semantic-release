@@ -1,0 +1,126 @@
+name: 'Publish/release Gradle library'
+description: 'Perform vulnerability scan and report using trivy'
+branding:
+  icon: upload
+  color: green
+inputs:
+  publish-tasks:
+    description: Gradle tasks to run for publishing, separated by space
+    default: 'publish'
+  release-tasks: Gradle tasks to run for creating a release, separated by space - if not specified will use publish-tasks
+    description:
+    default: ''
+  release:
+    description: If a release should be created if applicable; otherwise only the publish tasks are run
+    default: 'true' # Note: Action inputs are always of type string
+  github-token:
+    description: Github token to use for release
+    required: true
+    # Permissions needed
+    #   contents: write
+    #   issues: write
+    #   pull-requests: write
+  release-dryrun:
+    description: If a dry run should be done for the release
+    default: 'false'
+runs:
+  using: "composite"
+  steps:
+
+    - name: Create release configuration file
+      if: ${{ hashFiles('.releaserc.yml') == '' }}
+      shell: bash
+      # TODO rather use a template?
+      run: |
+        cat <<EOF > .releaserc.yml
+        ---
+        preset: conventionalcommits
+        branches: master
+
+        plugins:
+          - - "@semantic-release/commit-analyzer"
+          - - "@semantic-release/release-notes-generator"
+          - "@semantic-release/changelog"
+          - - "@semantic-release/exec"
+            - prepareCmd: echo "${nextRelease.version}" > version.txt
+              publishCmd: ./gradlew showVersion verifyReleaseVersion \$PUBLISH_TASKS
+          - - "@semantic-release/git"
+            - assets:
+                - CHANGELOG.md
+                - version.txt
+          - "@semantic-release/github"
+        EOF
+
+    - name: Install NodeJs
+      if: ${{ inputs.release == 'true' }}
+      uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
+      with:
+        node-version: 20
+
+    - name: Release with semantic-release
+      id: release
+      if: ${{ inputs.release == 'true' }}
+      uses: cycjimmy/semantic-release-action@61680d0e9b02ff86f5648ade99e01be17f0260a4 # v4.0.0
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        GIT_AUTHOR_NAME: wetransform Bot
+        GIT_AUTHOR_EMAIL: 113353961+wetransformer@users.noreply.github.com
+        GIT_COMMITTER_NAME: wetransform Bot
+        GIT_COMMITTER_EMAIL: 113353961+wetransformer@users.noreply.github.com
+        RUNNER_DEBUG: 1
+
+        # Plugin versions
+
+        # renovate: datasource=npm depName=@semantic-release/changelog
+        SEMANTIC_RELEASE_CHANGELOG_VERSION: 6.0.3
+
+        # renovate: datasource=npm depName=@semantic-release/exec
+        SEMANTIC_RELEASE_EXEC_VERSION: 6.0.3
+
+        # renovate: datasource=npm depName=@semantic-release/git
+        SEMANTIC_RELEASE_GIT_VERSION: 10.0.1
+
+        # renovate: datasource=npm depName=conventional-changelog-conventionalcommits
+        CONVENTIONAL_CHANGELOG_CONVENTIONALCOMMITS_VERSION: 7.0.2
+
+        # Tasks as environment variable
+        PUBLISH_TASKS: ${{ inputs.release-tasks != '' && inputs.release-tasks || inputs.publish-tasks }}
+        # Mark as release despite repo being dirty during build
+        RELEASE: 'true'
+
+        # For Gradle execution
+        # FIXME to test - can these be passed from the caller of the composite action?
+        # ORG_GRADLE_PROJECT_wetfArtifactoryUser: ${{ secrets.WETF_ARTIFACTORY_USER }}
+        # ORG_GRADLE_PROJECT_wetfArtifactoryPassword: ${{ secrets.WETF_ARTIFACTORY_PASSWORD }}
+        # JAVA_TOOL_OPTIONS: ${{ inputs.java-options }}
+      with:
+        dry_run: ${{ inputs.release-dryrun }}
+        semantic_version: 23.0.5
+
+        extra_plugins:
+          "@semantic-release/changelog@\
+          ${{ env.SEMANTIC_RELEASE_CHANGELOG_VERSION }} \
+          @semantic-release/exec@\
+          ${{ env.SEMANTIC_RELEASE_EXEC_VERSION }} \
+          @semantic-release/git@\
+          ${{ env.SEMANTIC_RELEASE_GIT_VERSION }} \
+          conventional-changelog-conventionalcommits@\
+          ${{ env.CONVENTIONAL_CHANGELOG_CONVENTIONALCOMMITS_VERSION }} \
+          "
+
+        # Run normal publishing if releasing is not enabled or if no release was created
+      - name: Publish with Gradle
+        if: ${{ inputs.release != 'true' || steps.release.outputs.new_release_published == 'false' ) }}
+        env:
+          # For Gradle execution
+          # FIXME to test - can these be passed from the caller of the composite action?
+          # ORG_GRADLE_PROJECT_wetfArtifactoryUser: ${{ secrets.WETF_ARTIFACTORY_USER }}
+          # ORG_GRADLE_PROJECT_wetfArtifactoryPassword: ${{ secrets.WETF_ARTIFACTORY_PASSWORD }}
+          # JAVA_TOOL_OPTIONS: ${{ inputs.java-options }}
+
+          # e.g. for pulling images for testcontainers
+          # ORG_GRADLE_PROJECT_dockerHubUsername: ${{ secrets.DOCKER_HUB_USERNAME }}
+          # ORG_GRADLE_PROJECT_dockerHubPassword: ${{ secrets.DOCKER_HUB_PASSWORD }}
+          # ORG_GRADLE_PROJECT_dockerHubEmail: ${{ secrets.DOCKER_HUB_EMAIL }}
+          # ORG_GRADLE_PROJECT_dockerHost: "unix:///var/run/docker.sock"
+        run: ./gradlew ${{ inputs.publish-tasks }}

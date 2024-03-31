@@ -112,7 +112,7 @@ runs:
     - name: Publish with Gradle
       if: ${{ inputs.release != 'true' || steps.release.outputs.new_release_published == 'false' }}
       shell: bash
-      env:
+      # env:
         # For Gradle execution
         # FIXME to test - can these be passed from the caller of the composite action?
         # ORG_GRADLE_PROJECT_wetfArtifactoryUser: ${{ secrets.WETF_ARTIFACTORY_USER }}

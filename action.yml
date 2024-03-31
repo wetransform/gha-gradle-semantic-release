@@ -124,4 +124,4 @@ runs:
         # ORG_GRADLE_PROJECT_dockerHubPassword: ${{ secrets.DOCKER_HUB_PASSWORD }}
         # ORG_GRADLE_PROJECT_dockerHubEmail: ${{ secrets.DOCKER_HUB_EMAIL }}
         # ORG_GRADLE_PROJECT_dockerHost: "unix:///var/run/docker.sock"
-      run: ./gradlew ${{ inputs.publish-tasks }}
+      run: ./gradlew showVersion ${{ inputs.publish-tasks }}

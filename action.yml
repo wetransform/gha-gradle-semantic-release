@@ -42,7 +42,7 @@ runs:
           - - "@semantic-release/release-notes-generator"
           - "@semantic-release/changelog"
           - - "@semantic-release/exec"
-            - prepareCmd: echo "${nextRelease.version}" > version.txt
+            - prepareCmd: ./gradlew "-PnewVersion=\${nextRelease.version}" setReleaseVersion
               publishCmd: ./gradlew showVersion verifyReleaseVersion \$PUBLISH_TASKS
           - - "@semantic-release/git"
             - assets:

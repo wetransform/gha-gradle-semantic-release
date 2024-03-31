@@ -43,7 +43,7 @@ runs:
           - "@semantic-release/changelog"
           - - "@semantic-release/exec"
             - prepareCmd: ./gradlew "-PnewVersion=\${nextRelease.version}" setReleaseVersion
-              publishCmd: ./gradlew showVersion verifyReleaseVersion \$PUBLISH_TASKS
+              publishCmd: RELEASE=true ./gradlew showVersion verifyReleaseVersion \$PUBLISH_TASKS
           - - "@semantic-release/git"
             - assets:
                 - CHANGELOG.md
@@ -85,8 +85,6 @@ runs:
 
         # Tasks as environment variable
         PUBLISH_TASKS: ${{ inputs.release-tasks != '' && inputs.release-tasks || inputs.publish-tasks }}
-        # Mark as release despite repo being dirty during build
-        RELEASE: 'true'
       with:
         dry_run: ${{ inputs.release-dryrun }}
         semantic_version: 23.0.5

@@ -28,7 +28,7 @@ runs:
   steps:
 
     - name: Create release configuration file
-      if: ${{ hashFiles('.releaserc.yml') == '' }}
+      if: ${{ inputs.release == 'true' && hashFiles('.releaserc.yml') == '' }}
       shell: bash
       # TODO rather use a template?
       run: |

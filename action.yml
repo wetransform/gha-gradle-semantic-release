@@ -7,8 +7,8 @@ inputs:
   publish-tasks:
     description: Gradle tasks to run for publishing, separated by space
     default: 'publish'
-  release-tasks: Gradle tasks to run for creating a release, separated by space - if not specified will use publish-tasks
-    description:
+  release-tasks:
+    description: Gradle tasks to run for creating a release, separated by space - if not specified will use publish-tasks
     default: ''
   release:
     description: If a release should be created if applicable; otherwise only the publish tasks are run

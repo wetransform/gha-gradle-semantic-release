@@ -1,3 +1,15 @@
+## [1.0.1](https://github.com/wetransform/gha-gradle-semantic-release/compare/v1.0.0...v1.0.1) (2024-03-31)
+
+
+### Bug Fixes
+
+* **deps:** update all non-major dependencies ([394b16a](https://github.com/wetransform/gha-gradle-semantic-release/commit/394b16ad7202bf2ed9877e10a493ed5868559ae8))
+
+
+### Reverts
+
+* ci: release on push ([019c3fd](https://github.com/wetransform/gha-gradle-semantic-release/commit/019c3fdb3d08d747fda13fca7795504ae125b61a))
+
 ## 1.0.0 (2024-03-31)
 
 

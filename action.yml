@@ -34,20 +34,24 @@ runs:
       run: |
         cat <<EOF > .releaserc.yml
         ---
-        preset: conventionalcommits
         branches: ${{ github.head_ref || github.ref_name }}
 
         plugins:
           - - "@semantic-release/commit-analyzer"
+            # see https://github.com/semantic-release/commit-analyzer?tab=readme-ov-file#options
+            - preset: conventionalcommits
           - - "@semantic-release/release-notes-generator"
+            # see https://github.com/semantic-release/release-notes-generator?tab=readme-ov-file#options
+            - preset: conventionalcommits
+              presetConfig:
+                issuePrefixes": ['ING-', 'WGS-', 'SVC-']
+                issueUrlFormat: 'https://wetransform.atlassian.net/browse/{{prefix}}{{id}}'
           - "@semantic-release/changelog"
           - - "@semantic-release/exec"
-            - prepareCmd: ./gradlew "-PnewVersion=\${nextRelease.version}" setReleaseVersion
-              publishCmd: RELEASE=true ./gradlew showVersion verifyReleaseVersion \$PUBLISH_TASKS
+            - publishCmd: RELEASE=true ./gradlew showVersion verifyReleaseVersion \$PUBLISH_TASKS
           - - "@semantic-release/git"
             - assets:
                 - CHANGELOG.md
-                - version.txt
           - "@semantic-release/github"
         EOF
 

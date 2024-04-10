@@ -48,8 +48,8 @@ runs:
                 issueUrlFormat: 'https://wetransform.atlassian.net/browse/{{prefix}}{{id}}'
               parserOpts:
                 # https://github.com/conventional-changelog/conventional-changelog/tree/master/packages/conventional-commits-parser#referenceactions
-                # set to null to reference an issue without action
-                referenceActions: null
+                # set to null to reference an issue without action (but will still show it "closes" the issue in the changelog)
+                # referenceActions: null
           - "@semantic-release/changelog"
           - - "@semantic-release/exec"
             - publishCmd: RELEASE=true ./gradlew showVersion verifyReleaseVersion \$PUBLISH_TASKS

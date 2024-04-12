@@ -1,3 +1,17 @@
+## [1.1.0](https://github.com/wetransform/gha-gradle-semantic-release/compare/v1.0.1...v1.1.0) (2024-04-12)
+
+
+### Features
+
+* disable referencing issues without action ([5602c72](https://github.com/wetransform/gha-gradle-semantic-release/commit/5602c723a1daef38d8204812d0831c2974f72d24))
+* issues don't require action for reference ([f7ac23f](https://github.com/wetransform/gha-gradle-semantic-release/commit/f7ac23f65f34feade6361e07f9ea9a3965523aef))
+
+
+### Bug Fixes
+
+* adapt to new version of Gradle plugin ([550246a](https://github.com/wetransform/gha-gradle-semantic-release/commit/550246ae7b9453c1682160db312885353e797a00))
+* **deps:** update all non-major dependencies ([8d963bb](https://github.com/wetransform/gha-gradle-semantic-release/commit/8d963bb332d801c2e2501057ea0874a166c6574f))
+
 ## [1.0.1](https://github.com/wetransform/gha-gradle-semantic-release/compare/v1.0.0...v1.0.1) (2024-03-31)
 
 

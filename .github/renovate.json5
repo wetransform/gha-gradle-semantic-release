@@ -8,11 +8,14 @@
     ":disableRateLimiting",
     "group:allNonMajor",
     ":enableVulnerabilityAlertsWithLabel(security)",
-    // ":semanticCommitTypeAll(fix)"
   ],
   labels: [
     "renovate",
     "renovate/{{updateType}}",
+  ],
+  ignorePaths: [
+    // Prevent running for terraform managed workflows
+    ".github/workflows/tf-*.yml", ".github/workflows/tf-*.yaml"
   ],
   packageRules: [
     {
@@ -21,6 +24,7 @@
       matchUpdateTypes: ["minor", "patch"],
       schedule: ["* * * * 0"],
     },
+    /* GitHub actions specific rule */
     {
       description: "Update to action dependencies use fix commits to trigger a release",
       matchFileNames: ["action.yml"],
@@ -34,7 +38,7 @@
     {
       description: "Update semantic-release in GitHub Action workflows",
       customType: "regex",
-      fileMatch: ["^\\.github\\/(actions|workflows)\\/.+\\.ya?ml$"],
+      fileMatch: ["(^workflow-templates|\\.github/(actions|workflows))\\/.+\\.ya?ml$"],
       matchStrings: [
         "\
 semantic_version\\s*:\\s*(\"|')?(?<currentValue>.+)(\"|')?\

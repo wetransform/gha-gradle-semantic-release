@@ -97,7 +97,7 @@ jobs:
           RUNNER_DEBUG: 1
         with:
           # dry_run: true
-          semantic_version: 23.0.7
+          semantic_version: 23.0.8
 
           extra_plugins:
             "@semantic-release/changelog@\

@@ -113,4 +113,4 @@ runs:
     - name: Publish with Gradle
       if: ${{ inputs.release != 'true' || steps.release.outputs.new_release_published == 'false' }}
       shell: bash
-      run: ./gradlew showVersion ${{ inputs.publish-tasks }}
+      run: ./gradlew ${{ inputs.publish-tasks }}

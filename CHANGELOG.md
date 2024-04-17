@@ -1,3 +1,14 @@
+## [2.0.0](https://github.com/wetransform/gha-gradle-semantic-release/compare/v1.1.0...v2.0.0) (2024-04-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* requires at least version 2.1.0 of Gradle semantic release version plugin
+
+### Features
+
+* verify that there are no snapshot dependencies before release ([c2f9b26](https://github.com/wetransform/gha-gradle-semantic-release/commit/c2f9b26df571e49f2fa709eb52f6c0bdb7fed8a1))
+
 ## [1.1.0](https://github.com/wetransform/gha-gradle-semantic-release/compare/v1.0.1...v1.1.0) (2024-04-12)
 
 

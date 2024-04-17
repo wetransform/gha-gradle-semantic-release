@@ -52,7 +52,8 @@ runs:
                 # referenceActions: null
           - "@semantic-release/changelog"
           - - "@semantic-release/exec"
-            - publishCmd: RELEASE=true ./gradlew showVersion verifyReleaseVersion \$PUBLISH_TASKS
+            - verifyReleaseCmd: ./gradlew verifyNoSnapshotDependencies
+              publishCmd: RELEASE=true ./gradlew showVersion verifyReleaseVersion \$PUBLISH_TASKS
           - - "@semantic-release/git"
             - assets:
                 - CHANGELOG.md

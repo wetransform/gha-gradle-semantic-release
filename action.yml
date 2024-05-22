@@ -23,6 +23,13 @@ inputs:
   release-dryrun:
     description: If a dry run should be done for the release
     default: 'false'
+outputs:
+  release-published:
+    description: "If a release was published"
+    value: ${{ steps.release.outputs.new_release_published }}
+  release-version:
+    description: "Release version if a release was published"
+    value: ${{ steps.release.outputs.new_release_version }}
 runs:
   using: "composite"
   steps:

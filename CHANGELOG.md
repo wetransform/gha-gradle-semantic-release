@@ -1,3 +1,15 @@
+## [2.1.0](https://github.com/wetransform/gha-gradle-semantic-release/compare/v2.0.1...v2.1.0) (2024-05-22)
+
+
+### Features
+
+* add outputs related to release ([1e77624](https://github.com/wetransform/gha-gradle-semantic-release/commit/1e776247aa8e44ab14130a4a38805cb51a6514c9))
+
+
+### Bug Fixes
+
+* **deps:** update dependency semantic-release to v23.1.1 ([83af546](https://github.com/wetransform/gha-gradle-semantic-release/commit/83af546db56db593599b4220ffbe0da75f176d8c))
+
 ## [2.0.1](https://github.com/wetransform/gha-gradle-semantic-release/compare/v2.0.0...v2.0.1) (2024-04-17)
 
 

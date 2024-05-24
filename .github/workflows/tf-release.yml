@@ -38,7 +38,7 @@ jobs:
           private-key: ${{ secrets.WE_RELEASE_GITHUB_PRIVATE_KEY }}
 
       - name: Checkout
-        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
         with:
           token: ${{ steps.app-token.outputs.token }}
           # Note: special permissions for push to protected branch required
@@ -97,7 +97,7 @@ jobs:
           RUNNER_DEBUG: 1
         with:
           # dry_run: true
-          semantic_version: 23.0.8
+          semantic_version: 23.1.1
 
           extra_plugins:
             "@semantic-release/changelog@\

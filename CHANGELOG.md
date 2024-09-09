@@ -1,3 +1,12 @@
+## [2.1.1](https://github.com/wetransform/gha-gradle-semantic-release/compare/v2.1.0...v2.1.1) (2024-09-09)
+
+
+### Bug Fixes
+
+* **deps:** update actions/setup-node action to v4.0.3 ([325eb02](https://github.com/wetransform/gha-gradle-semantic-release/commit/325eb024d0118c41e00ff7c3935c1ec9801c9456))
+* **deps:** update dependency conventional-changelog-conventionalcommits to v8 ([591a95a](https://github.com/wetransform/gha-gradle-semantic-release/commit/591a95a9f8f4810f9092630d20b167386c842fa9))
+* **deps:** update dependency semantic-release to v24 ([7b506ef](https://github.com/wetransform/gha-gradle-semantic-release/commit/7b506efb1f931dbff304edf280bf4507d9f4117e))
+
 ## [2.1.0](https://github.com/wetransform/gha-gradle-semantic-release/compare/v2.0.1...v2.1.0) (2024-05-22)
 
 

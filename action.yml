@@ -103,7 +103,7 @@ runs:
         PUBLISH_TASKS: ${{ inputs.release-tasks != '' && inputs.release-tasks || inputs.publish-tasks }}
       with:
         dry_run: ${{ inputs.release-dryrun }}
-        semantic_version: 24.1.1
+        semantic_version: 24.1.2
 
         extra_plugins:
           "@semantic-release/changelog@\

@@ -1,3 +1,12 @@
+## [2.1.3](https://github.com/wetransform/gha-gradle-semantic-release/compare/v2.1.2...v2.1.3) (2025-07-21)
+
+### Bug Fixes
+
+* **deps:** update all non-major dependencies ([1eda65a](https://github.com/wetransform/gha-gradle-semantic-release/commit/1eda65a1ea774111e031473d50a2fe8c9cc4f278))
+* **deps:** update cycjimmy/semantic-release-action action to v4.2.1 ([6a442ce](https://github.com/wetransform/gha-gradle-semantic-release/commit/6a442ce7c50a9fcbfd85c6469cea3703ab154875))
+* **deps:** update dependency conventional-changelog-conventionalcommits to v9 ([459bf22](https://github.com/wetransform/gha-gradle-semantic-release/commit/459bf22ca8118326b46bd7373da7cf4a60f97c04))
+* **deps:** update dependency semantic-release to v24.2.5 ([bfb1d9d](https://github.com/wetransform/gha-gradle-semantic-release/commit/bfb1d9d9557427c462dc6b3763a93dfa634a2d9c))
+
 ## [2.1.2](https://github.com/wetransform/gha-gradle-semantic-release/compare/v2.1.1...v2.1.2) (2025-05-19)
 
 ### Bug Fixes

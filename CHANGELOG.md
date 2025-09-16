@@ -1,3 +1,12 @@
+## [2.1.4](https://github.com/wetransform/gha-gradle-semantic-release/compare/v2.1.3...v2.1.4) (2025-09-16)
+
+### Bug Fixes
+
+* **deps:** update actions/setup-node action to v5 ([98c0030](https://github.com/wetransform/gha-gradle-semantic-release/commit/98c0030d68a9ef1957d63efc4f9a5d7937001345))
+* **deps:** update cycjimmy/semantic-release-action action to v5 ([f77fbbc](https://github.com/wetransform/gha-gradle-semantic-release/commit/f77fbbcf0d538a8294aedfa3d8fcd0b61def2925))
+* **deps:** update dependency node to v22 ([fcfc248](https://github.com/wetransform/gha-gradle-semantic-release/commit/fcfc248e4a370ae9bdf7909530384a652563ee70))
+* **deps:** update dependency semantic-release to v24.2.8 ([e751275](https://github.com/wetransform/gha-gradle-semantic-release/commit/e751275754523dc46eeb664e04bd484b6d9688d8))
+
 ## [2.1.3](https://github.com/wetransform/gha-gradle-semantic-release/compare/v2.1.2...v2.1.3) (2025-07-21)
 
 ### Bug Fixes

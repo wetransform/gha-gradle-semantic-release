@@ -59,12 +59,15 @@ Some body text." feat.txt hello)"
   [ "$status" -eq 0 ]
   git fetch --quiet origin
   [ "$(git show origin/master:feat.txt)" = "hello" ]
-  [ "$(git log -1 --format=%s origin/master)" = "feat: add thing" ]
-  [ "$(git log -1 --format=%an origin/master)" = "Other Dev" ]
-  [ "$(git log -1 --format=%ae origin/master)" = "other@example.com" ]
+  # re-add sits on top of the release commit and is merged into master with the merge commit
+  [ "$(git log -1 --format=%s origin/master)" = "chore(release): merge v2.3.1 from release/2.3.x into master" ]
+  [ "$(git rev-parse origin/master^2~1)" = "$(git rev-parse v2.3.1)" ]
+  [ "$(git log -1 --format=%s origin/master^2)" = "feat: add thing" ]
+  [ "$(git log -1 --format=%an origin/master^2)" = "Other Dev" ]
+  [ "$(git log -1 --format=%ae origin/master^2)" = "other@example.com" ]
   expected="$(printf '%s\n' "$(git log -1 --format=%B "$a")" | git interpret-trailers --trailer "Re-applies: $a" --trailer "Release-Merge-Back: v2.3.1")"
-  [ "$(git log -1 --format=%B origin/master)" = "$expected" ]
-  [ "$(git log -1 --format='%(trailers:key=Re-applies,valueonly)' origin/master | tr -d '\n')" = "$a" ]
+  [ "$(git log -1 --format=%B origin/master^2)" = "$expected" ]
+  [ "$(git log -1 --format='%(trailers:key=Re-applies,valueonly)' origin/master^2 | tr -d '\n')" = "$a" ]
 }
 
 @test "readd false -> master contains the revert, no re-add commit" {
@@ -91,7 +94,8 @@ Some body text." feat.txt hello)"
   [ "$(git show origin/master:a.txt)" = "A" ]
   [ "$(git show origin/master:b.txt)" = "B" ]
   # newest revert (of b) is re-added first, so it is older in history
-  [ "$(git log -2 --format=%s origin/master | paste -sd,)" = "feat: add a,feat: add b" ]
+  [ "$(git log -2 --format=%s origin/master^2 | paste -sd,)" = "feat: add a,feat: add b" ]
+  [ "$(git rev-parse origin/master^2~2)" = "$(git rev-parse v2.3.1)" ]
 }
 
 @test "revert with edited message -> not re-added, warning printed, exit 0" {
@@ -127,8 +131,9 @@ Took it out, it was wrong.'
   [ "$status" -eq 1 ]
   [ "$(origin_master)" = "$before" ]
   [[ "$output" == *"v2.3.1 is published and must not be re-run"* ]]
-  [[ "$output" == *"git fetch origin && git switch master && git pull && git merge --no-ff origin/release/2.3.x"* ]]
+  [[ "$output" == *"git switch -c merge-back-v2.3.1 v2.3.1"* ]]
   [[ "$output" == *"git revert $r"* ]]
+  [[ "$output" == *'git merge --no-ff -m "chore(release): merge v2.3.1 from release/2.3.x into master" -m "Release-Merge-Back: v2.3.1" merge-back-v2.3.1'* ]]
   [[ "$output" == *"Releases from master are blocked"* ]]
   [ "$(git rev-parse --abbrev-ref HEAD)" = "release/2.3.x" ]
   [ ! -e .git/REVERT_HEAD ] && [ ! -e .git/MERGE_HEAD ]
@@ -155,6 +160,45 @@ Took it out, it was wrong.'
   [ "$(printf '%s\n' "$output" | grep -c 'Merge-back attempt')" -eq 1 ]
   [ "$(origin_master)" = "$before" ]
   [[ "$output" == *"must not be re-run"* ]]
+  [[ "$output" == *'git merge --no-ff -m "chore(release): merge v2.3.1 from release/2.3.x into master" -m "Release-Merge-Back: v2.3.1" merge-back-v2.3.1'* ]]
+  [[ "$output" != *"git revert"* ]]
+}
+
+@test "master has a follow-up on the reverted change -> re-added on release side, merge succeeds, follow-up kept" {
+  printf 'l1\nl2\nl3\n' >f.txt; git add f.txt; git commit --quiet -m "chore: base file"
+  a="$(commit_file "feat: A" f.txt "$(printf 'l1\nA\nl3')")"
+  commit "fix: B" >/dev/null
+  git push --quiet origin release/2.3.x:master
+  git revert --no-edit "$a" >/dev/null
+  release_commit
+  git checkout --quiet -B master origin/master
+  commit_file "fix: A follow-up" f.txt "$(printf 'l1\nA-fixed\nl3')" >/dev/null
+  git push --quiet origin master
+  git checkout --quiet release/2.3.x
+  merge_back
+  [ "$status" -eq 0 ]
+  git fetch --quiet origin
+  [ "$(git show origin/master:f.txt)" = "$(printf 'l1\nA-fixed\nl3')" ]
+  git merge-base --is-ancestor v2.3.1 origin/master
+  [ "$(git log -1 --format=%s origin/master^2)" = "feat: A" ]
+  git log origin/master --format=%s | grep -qx "fix: A follow-up"
+}
+
+@test "master moved with an unrelated commit before merge-back -> preflight for the merge-back push (with --before) -> mode=skip" {
+  a="$(commit_file "feat: add thing" feat.txt hello)"
+  git revert --no-edit "$a" >/dev/null
+  release_commit
+  git checkout --quiet -B master origin/master
+  commit "chore(deps): bump" >/dev/null
+  git push --quiet origin master
+  before="$(git rev-parse HEAD)"
+  git checkout --quiet release/2.3.x
+  merge_back
+  [ "$status" -eq 0 ]
+  git fetch --quiet origin
+  git checkout --quiet -B master origin/master
+  run "$PREFLIGHT" --branch master --default-branch master --event push --before "$before"
+  [ "$output" = "mode=skip" ]
 }
 
 @test "unexpected failure (reverted commit unknown) -> recovery text, origin unchanged, clean clone" {

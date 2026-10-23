@@ -169,5 +169,4 @@ runs:
       env:
         PUBLISH_TASKS: ${{ inputs.publish-tasks }}
       run: |
-        read -ra tasks <<< "$PUBLISH_TASKS"
-        ./gradlew "${tasks[@]}"
+        "$GITHUB_ACTION_PATH/scripts/gradle-publish.sh" "$PUBLISH_TASKS"

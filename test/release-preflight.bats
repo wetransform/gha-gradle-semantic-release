@@ -124,6 +124,17 @@ merge_back_after_master_moved_fixture() {
   [[ "$output" == *"::error::Release v2.3.1 was created from another branch but is not merged into master. Finish the merge-back first"* ]]
 }
 
+@test "default branch run started before the merge-back (stale checkout) -> exit 1 asking to restart" {
+  merge_back_fixture
+  # the run checked out master as it was before the merge-back was pushed
+  git reset --quiet --hard "$(git rev-parse HEAD~2)"
+  preflight master workflow_dispatch
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"master has moved since this run was started"* ]]
+  [[ "$output" == *"v2.3.1"* ]]
+  [[ "$output" != *"Finish the merge-back"* ]]
+}
+
 @test "default branch, ignores non-semver tag v9.9.9-data that is unmerged -> mode=default" {
   commit "feat: first" >/dev/null
   tag_release 1.0.0

@@ -76,6 +76,12 @@ pending_merge_back_guard() {
       [[ "$higher" == "$tag" ]] || continue
     fi
     if ! git merge-base --is-ancestor "$tag" "$ref"; then
+      # the merge-back may have happened after this run was started (runs check out the commit they were started for)
+      if [[ "$ref" == HEAD ]] && git rev-parse --verify --quiet "refs/remotes/origin/$default_branch^{commit}" >/dev/null \
+          && git merge-base --is-ancestor "$tag" "origin/$default_branch"; then
+        echo "::error::$default_branch has moved since this run was started: release $tag has been merged into $default_branch in the meantime. Start the release again."
+        exit 1
+      fi
       echo "::error::Release $tag was created from another branch but is not merged into $default_branch. Finish the merge-back first (see the failed release run's summary)."
       exit 1
     fi

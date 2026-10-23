@@ -1,3 +1,10 @@
+## [2.2.1](https://github.com/wetransform/gha-gradle-semantic-release/compare/v2.2.0...v2.2.1) (2026-10-23)
+
+### Bug Fixes
+
+* **deps:** update cycjimmy/semantic-release-action action to v8 ([d579e93](https://github.com/wetransform/gha-gradle-semantic-release/commit/d579e93a0b8a8d6c7b3bfb933ceece4ac1194f9e))
+* explain stale release runs started before a merge-back ([8fc6281](https://github.com/wetransform/gha-gradle-semantic-release/commit/8fc6281b064afcc4781fd9c8bc89b9b34536e47b))
+
 ## [2.2.0](https://github.com/wetransform/gha-gradle-semantic-release/compare/v2.1.5...v2.2.0) (2026-10-23)
 
 ### Features

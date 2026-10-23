@@ -147,6 +147,36 @@ merge_back_after_master_moved_fixture() {
   [ "$output" = "mode=partial" ]
 }
 
+@test "release branch with a Reapply commit since the latest release -> exit 1" {
+  commit "feat: first" >/dev/null
+  tag_release 2.4.0
+  git push --quiet origin master
+  git checkout --quiet -b release/2.4.x
+  a="$(commit "feat: A")"
+  git revert --no-edit "$a" >/dev/null
+  git revert --no-edit HEAD >/dev/null
+  git commit --quiet --amend -m "Reapply \"feat: A\"" -m "This reverts commit $(git rev-parse HEAD~1)."
+  commit "fix: patch" >/dev/null
+  preflight release/2.4.x push
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"Branch release/2.4.x contains Reapply commit(s)"* ]]
+  [[ "$output" == *'Reapply "feat: A"'* ]]
+}
+
+@test "release branch with a Reapply commit before the latest release -> mode=partial" {
+  a="$(commit "feat: A")"
+  git revert --no-edit "$a" >/dev/null
+  git revert --no-edit HEAD >/dev/null
+  git commit --quiet --amend -m "Reapply \"feat: A\"" -m "This reverts commit $(git rev-parse HEAD~1)."
+  tag_release 2.4.0
+  git push --quiet origin master
+  git checkout --quiet -b release/2.4.x
+  commit "fix: patch" >/dev/null
+  preflight release/2.4.x push
+  [ "$status" -eq 0 ]
+  [ "$output" = "mode=partial" ]
+}
+
 @test "release branch, ignores non-semver tag on master not contained in branch -> mode=partial" {
   commit "feat: first" >/dev/null
   tag_release 2.4.0

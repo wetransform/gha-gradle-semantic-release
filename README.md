@@ -14,7 +14,7 @@ Prerequisites:
 ### Steps
 
 1. Create a branch from the default branch at the commit you want to release from (it must contain the latest release of the default branch). Use a name like `release/2.3.x`; do not use names like `2.3.x` or `2.x`, semantic-release treats those as maintenance branches and fails with "release branches are invalid".
-2. For every commit of each unready change (including follow-up fixes) run `git revert <sha>`. Keep the generated commit message and do not use `--no-commit`. To take a revert back, revert the revert commit; such pairs are ignored when re-adding.
+2. For every commit of each unready change (including follow-up fixes) run `git revert <sha>`. Keep the generated commit message and do not use `--no-commit`. To take a revert back, remove the revert commit from the branch (e.g. with `git rebase -i`) instead of reverting it: semantic-release does not recognize git's `Reapply "…"` commits, so the change would ship without showing up in version and release notes. The release is refused if the branch contains such a commit.
 3. Push the branch and run the Release workflow on that branch. Optionally untick the option to re-add the reverted changes.
 
 ### What the bot does

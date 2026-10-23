@@ -131,5 +131,12 @@ else
     echo "::error::Branch $branch does not contain $latest_default, the latest release of $default_branch. Cut the release branch from $default_branch after $latest_default."
     exit 1
   fi
+  # semantic-release does not recognize "Reapply" commits (git's subject for reverting a revert)
+  # as reverts, so the reapplied change would ship without being part of version and release notes
+  reapplies="$(git log --format='%h %s' "${latest_default:+$latest_default..}HEAD" | grep -E '^[0-9a-f]+ Reapply "' || true)"
+  if [[ -n "$reapplies" ]]; then
+    echo "::error::Branch $branch contains Reapply commit(s), which semantic-release does not recognize as reverts: $(paste -sd ';' <<< "$reapplies"). Remove the revert and its Reapply commit from the branch instead (e.g. with git rebase -i) and push again."
+    exit 1
+  fi
   emit partial
 fi

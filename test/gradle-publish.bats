@@ -29,6 +29,20 @@ setup() {
   [ "$output" = "$(printf '<publish>\n<$(touch>\n<pwned)>\n<`touch>\n<pwned2`>')" ]
 }
 
+@test "keeps double quotes inside single quotes" {
+  run "$SCRIPT" "publish -Pmessage='say \"hello world\"'"
+  [ "$status" -eq 0 ]
+  [ "$output" = "$(printf '<publish>\n<-Pmessage=say "hello world">')" ]
+}
+
+@test "unparseable tasks fail without invoking Gradle" {
+  printf '#!/usr/bin/env bash\ntouch invoked\n' > gradlew
+  run "$SCRIPT" 'publish -Pmessage="say \"hello world\""'
+  [ "$status" -ne 0 ]
+  [ ! -e invoked ]
+  [[ "$output" == *"Could not parse publish tasks"* ]]
+}
+
 @test "fails when Gradle fails" {
   printf '#!/usr/bin/env bash\nexit 3\n' > gradlew
   run "$SCRIPT" "publish"

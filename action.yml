@@ -5,7 +5,7 @@ branding:
   color: green
 inputs:
   publish-tasks:
-    description: Gradle tasks to run for publishing, separated by space
+    description: Gradle tasks to run for publishing, separated by space; values with spaces can be quoted (use single quotes for values containing double quotes)
     default: 'publish'
   release-tasks:
     description: Gradle tasks to run for creating a release, separated by space - if not specified will use publish-tasks

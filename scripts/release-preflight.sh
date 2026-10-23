@@ -3,6 +3,10 @@
 # Pre-flight checks before running semantic-release.
 #
 # Usage: release-preflight.sh --branch <name> --default-branch <name> --event <github.event_name>
+#                             [--before <sha>]
+#
+# --before: for push events the commit the branch pointed to before the push (github.event.before);
+# used to detect pushes that consist solely of merge-back commits.
 #
 # Run in the checked-out repository (HEAD = branch tip, full history and tags,
 # origin/<default-branch> present). Prints mode=<default|partial|skip> and
@@ -14,15 +18,17 @@ SEMVER_TAG='^v[0-9]+\.[0-9]+\.[0-9]+$'
 branch=""
 default_branch=""
 event=""
+before=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --branch|--default-branch|--event)
+    --branch|--default-branch|--event|--before)
       [[ $# -ge 2 ]] || { echo "Missing value for $1" >&2; exit 2; }
       case "$1" in
         --branch) branch="$2" ;;
         --default-branch) default_branch="$2" ;;
         --event) event="$2" ;;
+        --before) before="$2" ;;
       esac
       shift 2 ;;
     *) echo "Unknown argument: $1" >&2; exit 2 ;;
@@ -66,9 +72,17 @@ if [[ "$branch" == "$default_branch" ]]; then
     fi
   done < <(git tag --list 'v*' | grep -E "$SEMVER_TAG" || true)
 
-  # Skip runs triggered solely by merge-back commits
-  if [[ "$event" == "push" && -n "$latest_reachable" ]]; then
-    commits="$(git rev-list --first-parent "$latest_reachable..HEAD")"
+  # Skip runs triggered solely by merge-back commits: check the pushed commits if known,
+  # otherwise all commits since the latest release
+  if [[ "$event" == "push" ]]; then
+    range=""
+    if [[ -n "$before" && ! "$before" =~ ^0+$ ]] && git cat-file -e "$before^{commit}" 2>/dev/null; then
+      range="$before..HEAD"
+    elif [[ -n "$latest_reachable" ]]; then
+      range="$latest_reachable..HEAD"
+    fi
+    commits=""
+    [[ -n "$range" ]] && commits="$(git rev-list --first-parent "$range")"
     if [[ -n "$commits" ]]; then
       only_merge_back=true
       while IFS= read -r sha; do

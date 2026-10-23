@@ -8,9 +8,12 @@
 # --before: for push events the commit the branch pointed to before the push (github.event.before);
 # used to detect pushes that consist solely of merge-back commits.
 #
+# --default-branch may be empty; then origin/HEAD is used to determine it.
+#
 # Run in the checked-out repository (HEAD = branch tip, full history and tags,
 # origin/<default-branch> present). Prints mode=<default|partial|skip> and
-# appends it to $GITHUB_OUTPUT if set. Exits 1 with an ::error:: line if a guard fails.
+# appends it and default-branch=<name> to $GITHUB_OUTPUT if set. Exits 1 with an
+# ::error:: line if a guard fails.
 set -euo pipefail
 
 SEMVER_TAG='^v[0-9]+\.[0-9]+\.[0-9]+$'
@@ -35,16 +38,48 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ -z "$branch" || -z "$default_branch" || -z "$event" ]]; then
-  echo "Usage: $0 --branch <name> --default-branch <name> --event <event>" >&2
+if [[ -z "$branch" || -z "$event" ]]; then
+  echo "Usage: $0 --branch <name> --default-branch <name> --event <event> [--before <sha>]" >&2
   exit 2
+fi
+
+if [[ -z "$default_branch" ]]; then
+  default_branch="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || true)"
+  default_branch="${default_branch#origin/}"
+  if [[ -z "$default_branch" ]]; then
+    echo "::error::Could not determine the default branch: it was not provided and origin/HEAD is not set."
+    exit 1
+  fi
+fi
+if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+  echo "default-branch=$default_branch" >> "$GITHUB_OUTPUT"
 fi
 
 # newest_tag [<merged-into-ref>]: newest semver release tag (optionally only those reachable from ref)
 newest_tag() {
-  local args=(--list 'v*')
+  local args=(--list 'v*') tags
   [[ $# -gt 0 ]] && args=(--merged "$1" "${args[@]}")
-  { git tag "${args[@]}" | grep -E "$SEMVER_TAG" || true; } | sort -V | tail -n 1
+  tags="$(git tag "${args[@]}")" || return 1
+  { grep -E "$SEMVER_TAG" <<< "$tags" || true; } | sort -V | tail -n 1
+}
+
+# pending_merge_back_guard <ref>: fails if a release newer than the newest one reachable from
+# <ref> is not merged into <ref> (a partial release whose merge-back is pending)
+pending_merge_back_guard() {
+  local ref="$1" latest tag higher
+  latest="$(newest_tag "$ref")"
+  while IFS= read -r tag; do
+    [[ -z "$tag" ]] && continue
+    if [[ -n "$latest" ]]; then
+      [[ "$tag" == "$latest" ]] && continue
+      higher="$(printf '%s\n%s\n' "$latest" "$tag" | sort -V | tail -n 1)"
+      [[ "$higher" == "$tag" ]] || continue
+    fi
+    if ! git merge-base --is-ancestor "$tag" "$ref"; then
+      echo "::error::Release $tag was created from another branch but is not merged into $default_branch. Finish the merge-back first (see the failed release run's summary)."
+      exit 1
+    fi
+  done < <(git tag --list 'v*' | grep -E "$SEMVER_TAG" || true)
 }
 
 emit() {
@@ -59,18 +94,7 @@ if [[ "$branch" == "$default_branch" ]]; then
   latest_reachable="$(newest_tag HEAD)"
 
   # Pending merge-back guard: a newer release exists that is not part of this branch
-  while IFS= read -r tag; do
-    [[ -z "$tag" ]] && continue
-    if [[ -n "$latest_reachable" ]]; then
-      [[ "$tag" == "$latest_reachable" ]] && continue
-      higher="$(printf '%s\n%s\n' "$latest_reachable" "$tag" | sort -V | tail -n 1)"
-      [[ "$higher" == "$tag" ]] || continue
-    fi
-    if ! git merge-base --is-ancestor "$tag" HEAD; then
-      echo "::error::Release $tag was created from another branch but is not merged into $default_branch. Finish the merge-back first (see the failed release run's summary)."
-      exit 1
-    fi
-  done < <(git tag --list 'v*' | grep -E "$SEMVER_TAG" || true)
+  pending_merge_back_guard HEAD
 
   # Skip runs triggered solely by merge-back commits: check the pushed commits if known,
   # otherwise all commits since the latest release
@@ -97,6 +121,11 @@ if [[ "$branch" == "$default_branch" ]]; then
   fi
   emit default
 else
+  if ! git rev-parse --verify --quiet "refs/remotes/origin/$default_branch^{commit}" >/dev/null; then
+    echo "::error::origin/$default_branch not found. The repository must be checked out with full history (fetch-depth: 0)."
+    exit 1
+  fi
+  pending_merge_back_guard "origin/$default_branch"
   latest_default="$(newest_tag "origin/$default_branch")"
   if [[ -n "$latest_default" ]] && ! git merge-base --is-ancestor "$latest_default" HEAD; then
     echo "::error::Branch $branch does not contain $latest_default, the latest release of $default_branch. Cut the release branch from $default_branch after $latest_default."

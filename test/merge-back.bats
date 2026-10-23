@@ -53,6 +53,7 @@ commit_file() {
   a="$(commit_file "feat: add thing
 
 Some body text." feat.txt hello)"
+  git push --quiet origin release/2.3.x:master
   git revert --no-edit "$a" >/dev/null
   release_commit
   merge_back
@@ -72,6 +73,7 @@ Some body text." feat.txt hello)"
 
 @test "readd false -> master contains the revert, no re-add commit" {
   a="$(commit_file "feat: add thing" feat.txt hello)"
+  git push --quiet origin release/2.3.x:master
   git revert --no-edit "$a" >/dev/null
   release_commit
   merge_back false
@@ -85,6 +87,7 @@ Some body text." feat.txt hello)"
 @test "two reverts touching different files -> both re-added, newest revert first" {
   a="$(commit_file "feat: add a" a.txt A)"
   b="$(commit_file "feat: add b" b.txt B)"
+  git push --quiet origin release/2.3.x:master
   git revert --no-edit "$a" >/dev/null
   git revert --no-edit "$b" >/dev/null
   release_commit
@@ -122,6 +125,7 @@ Took it out, it was wrong.'
   git reset --quiet --hard origin/master
   git checkout --quiet -B release/2.3.x
   a="$(commit_file "feat: change f" f.txt two)"
+  git push --quiet origin release/2.3.x:master
   git revert --no-edit "$a" >/dev/null
   r="$(git rev-parse HEAD)"
   commit_file "fix: change f again" f.txt three >/dev/null
@@ -186,6 +190,7 @@ Took it out, it was wrong.'
 
 @test "master moved with an unrelated commit before merge-back -> preflight for the merge-back push (with --before) -> mode=skip" {
   a="$(commit_file "feat: add thing" feat.txt hello)"
+  git push --quiet origin release/2.3.x:master
   git revert --no-edit "$a" >/dev/null
   release_commit
   git checkout --quiet -B master origin/master
@@ -201,12 +206,16 @@ Took it out, it was wrong.'
   [ "$output" = "mode=skip" ]
 }
 
-@test "unexpected failure (reverted commit unknown) -> recovery text, origin unchanged, clean clone" {
+@test "unexpected failure (checkout fails) -> recovery text, origin unchanged, clean clone" {
   commit "fix: patch" >/dev/null
-  git commit --quiet --allow-empty -m 'Revert "feat: ghost"
-
-This reverts commit 1111111111111111111111111111111111111111.'
   release_commit
+  cat >.git/hooks/post-checkout <<HOOK
+#!/usr/bin/env bash
+[ -e "$BATS_TEST_TMPDIR/hook-ran" ] && exit 0
+touch "$BATS_TEST_TMPDIR/hook-ran"
+exit 1
+HOOK
+  chmod +x .git/hooks/post-checkout
   before="$(origin_master)"
   merge_back
   [ "$status" -eq 1 ]
@@ -262,6 +271,7 @@ HOOK
 
 @test "next preflight on master after merge-back (push) -> mode=skip; after normal commit -> mode=default" {
   a="$(commit_file "feat: add thing" feat.txt hello)"
+  git push --quiet origin release/2.3.x:master
   git revert --no-edit "$a" >/dev/null
   release_commit
   merge_back
@@ -273,4 +283,68 @@ HOOK
   commit "feat: normal" >/dev/null
   run "$PREFLIGHT" --branch master --default-branch master --event push
   [ "$output" = "mode=default" ]
+}
+
+@test "revert of a commit unknown to master -> not re-added, warning printed, exit 0" {
+  commit "fix: patch" >/dev/null
+  git commit --quiet --allow-empty -m 'Revert "feat: ghost"
+
+This reverts commit 1111111111111111111111111111111111111111.'
+  r="$(git rev-parse HEAD)"
+  release_commit
+  merge_back
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"::warning::Revert ${r:0:7} \"Revert \"feat: ghost\"\" reverts 1111111, which is not part of master"* ]]
+  git fetch --quiet origin
+  [ -z "$(git log origin/master --grep='Re-applies' --format=%H)" ]
+}
+
+@test "revert of a commit made on the release branch -> not re-added, no warning" {
+  a="$(commit_file "fix: branch only" b.txt B)"
+  git revert --no-edit "$a" >/dev/null
+  release_commit
+  merge_back
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"warning"* ]]
+  git fetch --quiet origin
+  [ -z "$(git log origin/master --grep='Re-applies' --format=%H)" ]
+}
+
+@test "revert re-applied later on the branch (git revert of the revert) -> nothing re-added, change present" {
+  a="$(commit_file "feat: add thing" feat.txt hello)"
+  git push --quiet origin release/2.3.x:master
+  git revert --no-edit "$a" >/dev/null
+  git revert --no-edit HEAD >/dev/null
+  release_commit
+  merge_back
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"warning"* ]]
+  git fetch --quiet origin
+  [ "$(git show origin/master:feat.txt)" = "hello" ]
+  [ -z "$(git log origin/master --grep='Re-applies' --format=%H)" ]
+}
+
+@test "revert re-applied later with 'Revert \"Revert ...\"' and 'Reapply' subjects -> nothing re-added" {
+  a="$(commit_file "feat: add a" a.txt A)"
+  b="$(commit_file "feat: add b" b.txt B)"
+  git push --quiet origin release/2.3.x:master
+  git revert --no-edit "$a" >/dev/null
+  ra="$(git rev-parse HEAD)"
+  git revert --no-edit "$b" >/dev/null
+  rb="$(git rev-parse HEAD)"
+  git revert --no-edit "$ra" >/dev/null
+  git commit --quiet --amend -m 'Revert "Revert "feat: add a""
+
+This reverts commit '"$ra"'.'
+  git revert --no-edit "$rb" >/dev/null
+  git commit --quiet --amend -m 'Reapply "feat: add b"
+
+This reverts commit '"$rb"'.'
+  release_commit
+  merge_back
+  [ "$status" -eq 0 ]
+  git fetch --quiet origin
+  [ "$(git show origin/master:a.txt)" = "A" ]
+  [ "$(git show origin/master:b.txt)" = "B" ]
+  [ -z "$(git log origin/master --grep='Re-applies' --format=%H)" ]
 }

@@ -176,6 +176,60 @@ merge_back_after_master_moved_fixture() {
   [[ "$output" == *"does not contain v2.4.0"* ]]
 }
 
+@test "release branch, origin/master missing -> exit 1 (fail closed)" {
+  commit "feat: first" >/dev/null
+  tag_release 2.4.0
+  git push --quiet origin master
+  git checkout --quiet -b release/2.4.x
+  git update-ref -d refs/remotes/origin/master
+  preflight release/2.4.x push
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"::error::origin/master not found"* ]]
+}
+
+@test "release branch while another partial release is not merged back -> exit 1" {
+  commit "feat: first" >/dev/null
+  tag_release 2.3.0
+  git push --quiet origin master
+  git checkout --quiet -b release/2.3.x
+  commit "fix: patch" >/dev/null
+  tag_release 2.3.1
+  git checkout --quiet -b release/2.3.y
+  commit "fix: another" >/dev/null
+  preflight release/2.3.y push
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"::error::Release v2.3.1 was created from another branch but is not merged into master. Finish the merge-back first"* ]]
+}
+
+@test "release branch after previous partial release was merged back -> mode=partial" {
+  merge_back_fixture
+  git checkout --quiet -b release/2.3.y
+  commit "fix: another" >/dev/null
+  preflight release/2.3.y push
+  [ "$status" -eq 0 ]
+  [ "$output" = "mode=partial" ]
+}
+
+@test "empty --default-branch -> falls back to origin/HEAD, written to \$GITHUB_OUTPUT" {
+  git remote set-head origin master
+  export GITHUB_OUTPUT="$BATS_TEST_TMPDIR/gh-output"
+  : >"$GITHUB_OUTPUT"
+  run "$SCRIPT" --branch master --default-branch "" --event push
+  [ "$status" -eq 0 ]
+  [ "$output" = "mode=default" ]
+  grep -qx "default-branch=master" "$GITHUB_OUTPUT"
+  run "$SCRIPT" --branch release/x --default-branch "" --event push
+  [ "$status" -eq 0 ]
+  [ "$output" = "mode=partial" ]
+}
+
+@test "empty --default-branch and no origin/HEAD -> exit 1 with error" {
+  git remote set-head origin --delete 2>/dev/null || true
+  run "$SCRIPT" --branch master --default-branch "" --event push
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"::error::Could not determine the default branch"* ]]
+}
+
 @test "writes mode to \$GITHUB_OUTPUT when set" {
   export GITHUB_OUTPUT="$BATS_TEST_TMPDIR/gh-output"
   : >"$GITHUB_OUTPUT"

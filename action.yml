@@ -33,9 +33,6 @@ outputs:
   release-version:
     description: "Release version if a release was published"
     value: ${{ steps.release.outputs.new_release_version }}
-  partial-release:
-    description: "If the release was a partial release from a non-default branch"
-    value: ${{ steps.preflight.outputs.mode == 'partial' }}
 runs:
   using: "composite"
   steps:
@@ -43,11 +40,13 @@ runs:
     - name: Create release configuration file
       if: ${{ inputs.release == 'true' && hashFiles('.releaserc.yml') == '' }}
       shell: bash
+      env:
+        RELEASE_BRANCH: ${{ github.head_ref || github.ref_name }}
       # TODO rather use a template?
       run: |
         cat <<EOF > .releaserc.yml
         ---
-        branches: ${{ github.head_ref || github.ref_name }}
+        branches: ${RELEASE_BRANCH}
 
         plugins:
           - - "@semantic-release/commit-analyzer"
@@ -84,12 +83,15 @@ runs:
       if: ${{ inputs.release == 'true' }}
       shell: bash
       env:
+        RELEASE_BRANCH: ${{ github.head_ref || github.ref_name }}
+        DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        EVENT_NAME: ${{ github.event_name }}
         EVENT_BEFORE: ${{ github.event.before }}
       run: |
-        "${{ github.action_path }}/scripts/release-preflight.sh" \
-          --branch "${{ github.head_ref || github.ref_name }}" \
-          --default-branch "${{ github.event.repository.default_branch }}" \
-          --event "${{ github.event_name }}" \
+        "$GITHUB_ACTION_PATH/scripts/release-preflight.sh" \
+          --branch "$RELEASE_BRANCH" \
+          --default-branch "$DEFAULT_BRANCH" \
+          --event "$EVENT_NAME" \
           --before "$EVENT_BEFORE"
 
     - name: Release with semantic-release
@@ -145,16 +147,24 @@ runs:
         GIT_COMMITTER_NAME: wetransform Bot
         GIT_COMMITTER_EMAIL: 113353961+wetransformer@users.noreply.github.com
         HK: "0"
+        RELEASE_BRANCH: ${{ github.head_ref || github.ref_name }}
+        DEFAULT_BRANCH: ${{ steps.preflight.outputs.default-branch }}
+        RELEASE_VERSION: ${{ steps.release.outputs.new_release_version }}
+        READD: ${{ inputs.partial-release-readd }}
       run: |
-        "${{ github.action_path }}/scripts/merge-back.sh" \
-          --branch "${{ github.head_ref || github.ref_name }}" \
-          --default-branch "${{ github.event.repository.default_branch }}" \
-          --version "${{ steps.release.outputs.new_release_version }}" \
-          --readd "${{ inputs.partial-release-readd }}" \
-          --push-url "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git"
+        "$GITHUB_ACTION_PATH/scripts/merge-back.sh" \
+          --branch "$RELEASE_BRANCH" \
+          --default-branch "$DEFAULT_BRANCH" \
+          --version "$RELEASE_VERSION" \
+          --readd "$READD" \
+          --push-url "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
 
       # Run normal publishing if releasing is not enabled, if the release was skipped or if no release was created
     - name: Publish with Gradle
       if: ${{ inputs.release != 'true' || steps.preflight.outputs.mode == 'skip' || steps.release.outputs.new_release_published == 'false' }}
       shell: bash
-      run: ./gradlew ${{ inputs.publish-tasks }}
+      env:
+        PUBLISH_TASKS: ${{ inputs.publish-tasks }}
+      run: |
+        read -ra tasks <<< "$PUBLISH_TASKS"
+        ./gradlew "${tasks[@]}"

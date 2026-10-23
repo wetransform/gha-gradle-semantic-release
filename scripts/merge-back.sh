@@ -108,6 +108,11 @@ $text"
   exit 1
 }
 
+# reverted_commit <sha>: the commit reverted by <sha> according to git's standard message, if any
+reverted_commit() {
+  git log -1 --format=%B "$1" | sed -nE 's/.*This reverts commit ([0-9a-f]{40})\..*/\1/p' | head -n1
+}
+
 trap 'fail "unexpected error at line $LINENO"' ERR
 
 attempt=1
@@ -124,18 +129,32 @@ while ((attempt <= max_attempts)); do
   reverts=()
   base="$(git merge-base "$release_sha" "$default_sha")"
   if [[ "$readd" == "true" ]]; then
+    range_shas=()
     while IFS= read -r sha; do
-      [[ -z "$sha" ]] && continue
+      [[ -n "$sha" ]] && range_shas+=("$sha")
+    done < <(git log --format=%H "$base..$release_sha")
+    # Commits reverted within the range (by reverts, reverts of reverts or "Reapply" commits)
+    reverted=" "
+    for sha in "${range_shas[@]}"; do
+      reverted+="$(reverted_commit "$sha") "
+    done
+    for sha in "${range_shas[@]}"; do
       subject="$(git log -1 --format=%s "$sha")"
       [[ "$subject" == 'Revert "'* ]] || continue
-      orig="$(git log -1 --format=%B "$sha" | sed -nE 's/.*This reverts commit ([0-9a-f]{40})\..*/\1/p' | head -n1)"
+      orig="$(reverted_commit "$sha")"
       if [[ -z "$orig" ]]; then
         warnings+=("Revert ${sha:0:7} \"$subject\" has no \"This reverts commit\" line — not re-added; re-apply it by hand if needed.")
+      elif [[ "$reverted" == *" $sha "* ]]; then
+        continue # the revert was undone later on the branch
+      elif ! git merge-base --is-ancestor "$orig" "$default_sha" 2>/dev/null; then
+        # Reverts of commits made on the release branch itself are not re-added
+        git merge-base --is-ancestor "$orig" "$release_sha" 2>/dev/null \
+          || warnings+=("Revert ${sha:0:7} \"$subject\" reverts ${orig:0:7}, which is not part of $default_branch — not re-added; re-apply it by hand if needed.")
       else
         reverts+=("$sha:$orig")
         revert_shas+=("$sha")
       fi
-    done < <(git log --format=%H "$base..$release_sha")
+    done
   fi
   revert_collected=true
 

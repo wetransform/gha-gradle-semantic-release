@@ -8,8 +8,8 @@ Use this to release only some of the changes on the default branch, while other 
 
 ### Steps
 
-1. Create a branch from the default branch at the commit you want to release from (it must contain the latest release of the default branch).
-2. For every commit of each unready change (including follow-up fixes) run `git revert <sha>`. Keep the generated commit message and do not use `--no-commit`.
+1. Create a branch from the default branch at the commit you want to release from (it must contain the latest release of the default branch). Use a name like `release/2.3.x`; do not use names like `2.3.x` or `2.x`, semantic-release treats those as maintenance branches and fails with "release branches are invalid".
+2. For every commit of each unready change (including follow-up fixes) run `git revert <sha>`. Keep the generated commit message and do not use `--no-commit`. To take a revert back, revert the revert commit; such pairs are ignored when re-adding.
 3. Push the branch and run the Release workflow on that branch. Optionally untick the option to re-add the reverted changes.
 
 ### What the bot does
@@ -21,7 +21,7 @@ Use this to release only some of the changes on the default branch, while other 
 
 ### Guards
 
-- `Release vX was created from another branch but is not merged into <default>`: a previous partial release has not been merged back yet. Finish that merge-back (see below) before releasing again.
+- `Release vX was created from another branch but is not merged into <default>`: a previous partial release has not been merged back yet. Finish that merge-back (see below) before releasing again (from the default branch or another release branch).
 - `Branch <b> does not contain <vX>, the latest release of <default>`: the branch is outdated or was cut before the latest release. Create a new branch from the default branch.
 
 ### Recovery when the merge-back fails

@@ -348,3 +348,89 @@ This reverts commit '"$rb"'.'
   [ "$(git show origin/master:b.txt)" = "B" ]
   [ -z "$(git log origin/master --grep='Re-applies' --format=%H)" ]
 }
+
+# assert_readded_once <orig sha> <file> <content>: origin/master has <file> with <content> and
+# exactly one re-add commit, carrying the original's message, author and trailers
+assert_readded_once() {
+  git fetch --quiet origin
+  [ "$(git show origin/master:"$2")" = "$3" ]
+  [ "$(git log origin/master --grep='Re-applies' --format=%H | wc -l)" -eq 1 ]
+  [ "$(git rev-parse origin/master^2~1)" = "$(git rev-parse v2.3.1)" ]
+  [ "$(git log -1 --format=%an origin/master^2)" = "Other Dev" ]
+  expected="$(printf '%s\n' "$(git log -1 --format=%B "$1")" | git interpret-trailers --trailer "Re-applies: $1" --trailer "Release-Merge-Back: v2.3.1")"
+  [ "$(git log -1 --format=%B origin/master^2)" = "$expected" ]
+}
+
+@test "revert chain revert -> reapply -> revert (Reapply naming) -> change re-added once from the original" {
+  a="$(commit_file "feat: A
+
+Body of A." featA.txt A)"
+  git push --quiet origin release/2.3.x:master
+  git revert --no-edit "$a" >/dev/null
+  r1="$(git rev-parse HEAD)"
+  git revert --no-edit "$r1" >/dev/null
+  git commit --quiet --amend -m 'Reapply "feat: A"
+
+This reverts commit '"$r1"'.'
+  git revert --no-edit HEAD >/dev/null
+  release_commit
+  merge_back
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"(1 reverted change(s) re-added)"* ]]
+  [[ "$output" != *"warning"* ]]
+  assert_readded_once "$a" featA.txt A
+}
+
+@test "revert chain revert -> reapply -> revert ('Revert \"Revert ...\"' naming) -> change re-added once from the original" {
+  a="$(commit_file "feat: A" featA.txt A)"
+  git push --quiet origin release/2.3.x:master
+  git revert --no-edit "$a" >/dev/null
+  r1="$(git rev-parse HEAD)"
+  git revert --no-edit "$r1" >/dev/null
+  git commit --quiet --amend -m 'Revert "Revert "feat: A""
+
+This reverts commit '"$r1"'.'
+  git revert --no-edit HEAD >/dev/null
+  release_commit
+  merge_back
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"(1 reverted change(s) re-added)"* ]]
+  [[ "$output" != *"warning"* ]]
+  assert_readded_once "$a" featA.txt A
+}
+
+@test "revert -> reapply (net zero) -> nothing re-added, change present, exit 0" {
+  a="$(commit_file "feat: A" featA.txt A)"
+  git push --quiet origin release/2.3.x:master
+  git revert --no-edit "$a" >/dev/null
+  git revert --no-edit HEAD >/dev/null
+  release_commit
+  merge_back
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"(0 reverted change(s) re-added)"* ]]
+  git fetch --quiet origin
+  [ "$(git show origin/master:featA.txt)" = "A" ]
+  [ -z "$(git log origin/master --grep='Re-applies' --format=%H)" ]
+}
+
+@test "revert chain whose root is not on master -> not re-added, warning names the chain's revert" {
+  commit "fix: patch" >/dev/null
+  git commit --quiet --allow-empty -m 'Revert "feat: ghost"
+
+This reverts commit 1111111111111111111111111111111111111111.'
+  r1="$(git rev-parse HEAD)"
+  git commit --quiet --allow-empty -m 'Reapply "feat: ghost"
+
+This reverts commit '"$r1"'.'
+  r2="$(git rev-parse HEAD)"
+  git commit --quiet --allow-empty -m 'Revert "Reapply "feat: ghost""
+
+This reverts commit '"$r2"'.'
+  r3="$(git rev-parse HEAD)"
+  release_commit
+  merge_back
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"::warning::Revert ${r3:0:7} \"Revert \"Reapply \"feat: ghost\"\"\" reverts 1111111, which is not part of master"* ]]
+  git fetch --quiet origin
+  [ -z "$(git log origin/master --grep='Re-applies' --format=%H)" ]
+}

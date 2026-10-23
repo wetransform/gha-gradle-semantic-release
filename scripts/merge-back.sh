@@ -129,31 +129,66 @@ while ((attempt <= max_attempts)); do
   reverts=()
   base="$(git merge-base "$release_sha" "$default_sha")"
   if [[ "$readd" == "true" ]]; then
-    range_shas=()
+    range_shas=() parents=()
     while IFS= read -r sha; do
-      [[ -n "$sha" ]] && range_shas+=("$sha")
+      [[ -n "$sha" ]] || continue
+      range_shas+=("$sha")
+      parents+=("$(reverted_commit "$sha")")
     done < <(git log --format=%H "$base..$release_sha")
-    # Commits reverted within the range (by reverts, reverts of reverts or "Reapply" commits)
-    reverted=" "
-    for sha in "${range_shas[@]}"; do
-      reverted+="$(reverted_commit "$sha") "
-    done
-    for sha in "${range_shas[@]}"; do
-      subject="$(git log -1 --format=%s "$sha")"
-      [[ "$subject" == 'Revert "'* ]] || continue
-      orig="$(reverted_commit "$sha")"
-      if [[ -z "$orig" ]]; then
-        warnings+=("Revert ${sha:0:7} \"$subject\" has no \"This reverts commit\" line — not re-added; re-apply it by hand if needed.")
-      elif [[ "$reverted" == *" $sha "* ]]; then
-        continue # the revert was undone later on the branch
-      elif ! git merge-base --is-ancestor "$orig" "$default_sha" 2>/dev/null; then
-        # Reverts of commits made on the release branch itself are not re-added
-        git merge-base --is-ancestor "$orig" "$release_sha" 2>/dev/null \
-          || warnings+=("Revert ${sha:0:7} \"$subject\" reverts ${orig:0:7}, which is not part of $default_branch — not re-added; re-apply it by hand if needed.")
-      else
-        reverts+=("$sha:$orig")
-        revert_shas+=("$sha")
+    # Chains of reverts, reverts of reverts and "Reapply" commits within the range are resolved to
+    # their root (the first commit outside the chain). Odd depth reverts the root, even depth
+    # re-applies it; the net count per root tells whether the root is reverted on the branch.
+    roots=() nets=() root_reverts=()   # per root; root_reverts: newest revert (odd depth) of the root
+    for i in "${!range_shas[@]}"; do
+      sha="${range_shas[$i]}" cur="${parents[$i]}" depth=1
+      if [[ -z "$cur" ]]; then
+        subject="$(git log -1 --format=%s "$sha")"
+        [[ "$subject" == 'Revert "'* || "$subject" == 'Reapply "'* ]] \
+          && warnings+=("Revert ${sha:0:7} \"$subject\" has no \"This reverts commit\" line — not re-added; re-apply it by hand if needed.")
+        continue
       fi
+      while ((depth <= ${#range_shas[@]})); do
+        next=""
+        for j in "${!range_shas[@]}"; do
+          [[ "${range_shas[$j]}" == "$cur" ]] && { next="${parents[$j]}"; break; }
+        done
+        [[ -n "$next" ]] || break
+        cur="$next"
+        depth=$((depth + 1))
+      done
+      k=""
+      for j in "${!roots[@]}"; do [[ "${roots[$j]}" == "$cur" ]] && { k="$j"; break; }; done
+      if [[ -z "$k" ]]; then
+        k="${#roots[@]}"
+        roots+=("$cur") nets+=(0) root_reverts+=("")
+      fi
+      if ((depth % 2 == 1)); then
+        nets[k]=$((nets[k] + 1))
+        [[ -n "${root_reverts[$k]}" ]] || root_reverts[k]="$sha"
+      else
+        nets[k]=$((nets[k] - 1))
+      fi
+    done
+    # Re-add order: by the newest revert of each root, newest first
+    for sha in "${range_shas[@]}"; do
+      for k in "${!roots[@]}"; do
+        [[ "${root_reverts[$k]}" == "$sha" ]] || continue
+        orig="${roots[$k]}"
+        subject="$(git log -1 --format=%s "$sha")"
+        if [[ " ${range_shas[*]} " == *" $orig "* ]]; then
+          : # reverts of commits made on the release branch itself are not re-added
+        elif ((nets[k] == 0)); then
+          : # the revert was undone later on the branch
+        elif ! git merge-base --is-ancestor "$orig" "$default_sha" 2>/dev/null; then
+          git merge-base --is-ancestor "$orig" "$release_sha" 2>/dev/null \
+            || warnings+=("Revert ${sha:0:7} \"$subject\" reverts ${orig:0:7}, which is not part of $default_branch — not re-added; re-apply it by hand if needed.")
+        elif ((nets[k] != 1)); then
+          warnings+=("Revert ${sha:0:7} \"$subject\": ${orig:0:7} is reverted ${nets[k]} times net on $branch — not re-added; re-apply it by hand if needed.")
+        else
+          reverts+=("$sha:$orig")
+          revert_shas+=("$sha")
+        fi
+      done
     done
   fi
   revert_collected=true

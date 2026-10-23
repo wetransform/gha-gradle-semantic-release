@@ -38,6 +38,7 @@ runs:
   steps:
 
     - name: Create release configuration file
+      id: release-config
       if: ${{ inputs.release == 'true' && hashFiles('.releaserc.yml') == '' }}
       shell: bash
       env:
@@ -80,7 +81,9 @@ runs:
 
     - name: Check release preconditions
       id: preflight
-      if: ${{ inputs.release == 'true' }}
+      # partial releases are only supported with the generated release configuration;
+      # repositories with their own .releaserc.yml (e.g. maintenance branches) behave as before
+      if: ${{ inputs.release == 'true' && steps.release-config.outcome == 'success' }}
       shell: bash
       env:
         RELEASE_BRANCH: ${{ github.head_ref || github.ref_name }}

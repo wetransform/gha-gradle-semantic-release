@@ -6,8 +6,9 @@
 #                      --readd <true|false> --push-url <url> [--max-attempts <n>]
 #
 # Run in the checked-out repository after semantic-release (HEAD = release commit on the
-# release branch). Merges HEAD into <default-branch> with a merge commit, optionally re-adds
-# commits that were reverted on the release branch, and pushes. Nothing is pushed on failure.
+# release branch). Optionally re-adds commits that were reverted on the release branch on top
+# of the release commit, merges the result into <default-branch> with a merge commit, and
+# pushes. Nothing is pushed on failure.
 set -Eeuo pipefail
 
 branch="" default_branch="" version="" readd="" push_url="" max_attempts=3
@@ -35,6 +36,7 @@ if [[ -z "$branch" || -z "$default_branch" || -z "$version" || -z "$readd" || -z
 fi
 
 tag="v$version"
+merge_subject="chore(release): merge $tag from $branch into $default_branch"
 release_sha="$(git rev-parse HEAD)"
 orig_ref="$(git symbolic-ref -q --short HEAD || echo "$release_sha")"
 
@@ -71,16 +73,17 @@ fail() {
       [[ -n "$sha" ]] && revert_shas+=("$sha")
     done < <(git log --format='%H %s' "$release_sha" "${range[@]}" 2>/dev/null | sed -nE 's/^([0-9a-f]{40}) Revert ".*/\1/p')
   fi
-  local text
+  local text tmp="merge-back-$tag"
   text="::error::Merge-back of $tag into $default_branch failed: $1
 
 The release $tag is published and must not be re-run. Finish the merge-back by hand:
 
-    git fetch origin && git switch $default_branch && git pull && git merge --no-ff origin/$branch
+    git fetch origin --tags
+    git switch -c $tmp $tag
 "
   if ((${#revert_shas[@]} > 0)); then
     text+="
-Then re-add each reverted change (use the original commit's message):
+Re-add each reverted change on top of the release (use the original commit's message):
 "
     for r in "${revert_shas[@]}"; do
       text+="
@@ -90,6 +93,12 @@ Then re-add each reverted change (use the original commit's message):
 "
   fi
   text+="
+Merge into $default_branch with the Release-Merge-Back trailer (so the push does not trigger a release) and push:
+
+    git switch $default_branch && git pull
+    git merge --no-ff -m \"$merge_subject\" -m \"Release-Merge-Back: $tag\" $tmp
+    git push origin $default_branch
+
 Releases from $default_branch are blocked until the merge-back is pushed."
   for w in "${warnings[@]}"; do text+="
 Warning: $w"; done
@@ -110,7 +119,6 @@ while ((attempt <= max_attempts)); do
 
   git fetch --quiet "$push_url" "$default_branch" || fail "could not fetch $default_branch"
   default_sha="$(git rev-parse FETCH_HEAD)"
-  git checkout --quiet -B merge-back "$default_sha"
 
   # Reverts on the release branch (newest first), collected before merging
   reverts=()
@@ -131,11 +139,9 @@ while ((attempt <= max_attempts)); do
   fi
   revert_collected=true
 
-  merge_msg="chore(release): merge $tag from $branch into $default_branch
-
-Release-Merge-Back: $tag"
-  git merge --no-ff -m "$merge_msg" "$release_sha" >/dev/null || fail "merge conflict merging $branch into $default_branch"
-
+  # Re-add on top of the release commit, so the re-adds apply to the code they were reverted from
+  # and are descendants of the release tag (released by the next default branch release)
+  git checkout --quiet -B merge-back-readd "$release_sha"
   for pair in "${reverts[@]}"; do
     rev="${pair%%:*}"
     orig="${pair##*:}"
@@ -145,6 +151,13 @@ Release-Merge-Back: $tag"
     git commit --quiet --no-verify --author "$(git log -1 --format='%an <%ae>' "$orig")" -m "$msg" \
       || fail "could not commit re-add of $orig"
   done
+  readd_sha="$(git rev-parse HEAD)"
+
+  git checkout --quiet -B merge-back "$default_sha"
+  merge_msg="$merge_subject
+
+Release-Merge-Back: $tag"
+  git merge --no-ff -m "$merge_msg" "$readd_sha" >/dev/null || fail "merge conflict merging $branch into $default_branch"
 
   if git push --quiet "$push_url" "HEAD:refs/heads/$default_branch"; then
     for w in "${warnings[@]}"; do echo "::warning::$w"; done

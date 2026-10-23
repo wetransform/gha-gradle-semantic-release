@@ -15,8 +15,8 @@ Use this to release only some of the changes on the default branch, while other 
 ### What the bot does
 
 - Runs semantic-release on the branch and creates the release (tag, changelog, publish).
-- Merges the release commit back into the default branch with a merge commit, so the release is part of the default branch history.
-- Unless disabled (`partial-release-readd: 'false'`), re-adds the reverted changes on the default branch, so they are not lost there.
+- Unless disabled (`partial-release-readd: 'false'`), re-adds the reverted changes on top of the release commit (in a temporary branch), so they are not lost on the default branch and are part of its next release.
+- Merges the release commit (with the re-added changes) into the default branch with a merge commit, so the release is part of the default branch history. The merge commit carries a `Release-Merge-Back: v<version>` trailer, so pushing it does not trigger an automatic release.
 - Pushes the default branch. Nothing is pushed if the merge-back fails.
 
 ### Guards
@@ -26,4 +26,15 @@ Use this to release only some of the changes on the default branch, while other 
 
 ### Recovery when the merge-back fails
 
-The release itself (tag, publication) already exists. The failed run's summary describes the exact steps. In general: merge the release commit or tag into the default branch manually (using a merge commit), re-add the reverted changes if wanted (revert the reverts), and push. Until this is done, further releases from the default branch are blocked by the guard above.
+The release itself (tag, publication) already exists. The failed run's summary describes the exact steps. In general:
+
+```sh
+git fetch origin --tags
+git switch -c merge-back-v<version> v<version>
+git revert <revert-sha>   # for each reverted change to re-add, keep the original commit's message
+git switch <default> && git pull
+git merge --no-ff -m "chore(release): merge v<version> from <branch> into <default>" -m "Release-Merge-Back: v<version>" merge-back-v<version>
+git push origin <default>
+```
+
+The `Release-Merge-Back` trailer on the merge commit is required, otherwise the push may trigger an automatic release of the re-added changes. Until this is done, further releases from the default branch are blocked by the guard above.

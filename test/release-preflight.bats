@@ -9,7 +9,7 @@ setup() {
 }
 
 preflight() {
-  run "$SCRIPT" --branch "$1" --default-branch master --event "${2:-push}"
+  run "$SCRIPT" --branch "$1" --default-branch master --event "${2:-push}" "${@:3}"
 }
 
 # master at v2.3.0, release/2.3.x with v2.3.1 merged back (with trailer) plus re-add commit
@@ -63,6 +63,53 @@ Release-Merge-Back: v2.3.1" >/dev/null
   preflight master push
   [ "$status" -eq 0 ]
   [ "$output" = "mode=default" ]
+}
+
+# Like merge_back_fixture, but master gets an unrelated commit between branch cut and merge-back.
+# Sets BEFORE to the master tip before the merge-back push.
+merge_back_after_master_moved_fixture() {
+  commit "feat: first" >/dev/null
+  tag_release 2.3.0
+  git checkout --quiet -b release/2.3.x
+  commit "fix: patch" >/dev/null
+  tag_release 2.3.1
+  git checkout --quiet master
+  commit "chore(deps): bump" >/dev/null
+  git push --quiet origin master
+  BEFORE="$(git rev-parse HEAD)"
+  git merge --quiet --no-ff release/2.3.x -m "chore: merge release v2.3.1" -m "Release-Merge-Back: v2.3.1"
+  git push --quiet origin master
+}
+
+@test "push with --before: only the pushed merge-back commit counts, unrelated earlier commit ignored -> mode=skip" {
+  merge_back_after_master_moved_fixture
+  preflight master push --before "$BEFORE"
+  [ "$status" -eq 0 ]
+  [ "$output" = "mode=skip" ]
+}
+
+@test "push with --before: pushed range contains a normal commit -> mode=default" {
+  merge_back_after_master_moved_fixture
+  commit "feat: normal" >/dev/null
+  preflight master push --before "$BEFORE"
+  [ "$status" -eq 0 ]
+  [ "$output" = "mode=default" ]
+}
+
+@test "push with --before: workflow_dispatch event ignores --before -> mode=default" {
+  merge_back_after_master_moved_fixture
+  preflight master workflow_dispatch --before "$BEFORE"
+  [ "$status" -eq 0 ]
+  [ "$output" = "mode=default" ]
+}
+
+@test "push with --before empty, all zeros or unknown -> falls back to commits since latest tag" {
+  merge_back_fixture
+  for before in "" 0000000000000000000000000000000000000000 1111111111111111111111111111111111111111; do
+    preflight master push --before "$before"
+    [ "$status" -eq 0 ]
+    [ "$output" = "mode=skip" ]
+  done
 }
 
 @test "default branch, unmerged newer tag v2.3.1 on side branch -> exit 1" {

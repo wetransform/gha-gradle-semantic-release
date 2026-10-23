@@ -1,3 +1,24 @@
+## [2.2.0](https://github.com/wetransform/gha-gradle-semantic-release/compare/v2.1.5...v2.2.0) (2026-10-23)
+
+### Features
+
+* add merge-back of partial releases into default branch ([e2b6e41](https://github.com/wetransform/gha-gradle-semantic-release/commit/e2b6e41e2682d6995447fd825b504f4503d9d57b))
+* add release preflight checks for partial releases ([cf4e444](https://github.com/wetransform/gha-gradle-semantic-release/commit/cf4e444cc33451f4f73f03039f4a5d13a80af318))
+* support partial releases from non-default branches ([8743dd5](https://github.com/wetransform/gha-gradle-semantic-release/commit/8743dd5dbf52deecc791d8d3d8baa88062bcc553))
+
+### Bug Fixes
+
+* **deps:** update actions/setup-node action to v7.1.0 ([174dfe1](https://github.com/wetransform/gha-gradle-semantic-release/commit/174dfe1ff32392cea45af5c339732483be102681))
+* **deps:** update cycjimmy/semantic-release-action action to v7 ([c6a825c](https://github.com/wetransform/gha-gradle-semantic-release/commit/c6a825cc7dbf2014dbea72a394cdf06c8c086b86))
+* harden partial release checks and action inputs ([9952e5a](https://github.com/wetransform/gha-gradle-semantic-release/commit/9952e5a95888dbbaeb53b620c2c0d2a3f3ace9c1))
+* keep quoted publish task arguments together ([6076c85](https://github.com/wetransform/gha-gradle-semantic-release/commit/6076c85ddcec9d21c07243e149c718a16667b56d))
+* only consider pushed commits when skipping merge-back pushes ([25b3719](https://github.com/wetransform/gha-gradle-semantic-release/commit/25b3719217d120f0d3871694bcc0e5a753b647e3))
+* only enable partial releases with the generated release configuration ([61f2ecb](https://github.com/wetransform/gha-gradle-semantic-release/commit/61f2ecb012e243a5bcf7907bf7af8b38ae8ec5e1))
+* parse publish tasks completely before invoking gradle ([3584f71](https://github.com/wetransform/gha-gradle-semantic-release/commit/3584f71fb3a77f055416c2743145c6aba427dbf4))
+* re-add reverted changes on top of the release before merging back ([910935a](https://github.com/wetransform/gha-gradle-semantic-release/commit/910935a0589aaf1fffdcb8dee5cbf28f239853fb))
+* refuse partial releases containing Reapply commits ([784e038](https://github.com/wetransform/gha-gradle-semantic-release/commit/784e0387de30ad3b710a50844ab239aecdb88687))
+* resolve revert chains when re-adding reverted changes ([67c3050](https://github.com/wetransform/gha-gradle-semantic-release/commit/67c305034b94ab9748b157131fe1c7b1f5e90d3e))
+
 ## [2.1.5](https://github.com/wetransform/gha-gradle-semantic-release/compare/v2.1.4...v2.1.5) (2026-08-14)
 
 ### Bug Fixes

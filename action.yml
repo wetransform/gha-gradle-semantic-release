@@ -23,6 +23,9 @@ inputs:
   release-dryrun:
     description: If a dry run should be done for the release
     default: 'false'
+  partial-release-readd:
+    description: Re-add reverted changes on the default branch after a partial release
+    default: 'true'
 outputs:
   release-published:
     description: "If a release was published"
@@ -30,6 +33,9 @@ outputs:
   release-version:
     description: "Release version if a release was published"
     value: ${{ steps.release.outputs.new_release_version }}
+  partial-release:
+    description: "If the release was a partial release from a non-default branch"
+    value: ${{ steps.preflight.outputs.mode == 'partial' }}
 runs:
   using: "composite"
   steps:
@@ -73,9 +79,19 @@ runs:
       with:
         node-version: 24
 
+    - name: Check release preconditions
+      id: preflight
+      if: ${{ inputs.release == 'true' }}
+      shell: bash
+      run: |
+        "${{ github.action_path }}/scripts/release-preflight.sh" \
+          --branch "${{ github.head_ref || github.ref_name }}" \
+          --default-branch "${{ github.event.repository.default_branch }}" \
+          --event "${{ github.event_name }}"
+
     - name: Release with semantic-release
       id: release
-      if: ${{ inputs.release == 'true' }}
+      if: ${{ inputs.release == 'true' && steps.preflight.outputs.mode != 'skip' }}
       uses: cycjimmy/semantic-release-action@1989a0fefc4aea321e07f717680ed8e345925dc1 # v7.1.2
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
@@ -116,8 +132,26 @@ runs:
           ${{ env.CONVENTIONAL_CHANGELOG_CONVENTIONALCOMMITS_VERSION }} \
           "
 
-      # Run normal publishing if releasing is not enabled or if no release was created
+    - name: Merge back partial release
+      if: ${{ inputs.release == 'true' && inputs.release-dryrun != 'true' && steps.preflight.outputs.mode == 'partial' && steps.release.outputs.new_release_published == 'true' }}
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        GIT_AUTHOR_NAME: wetransform Bot
+        GIT_AUTHOR_EMAIL: 113353961+wetransformer@users.noreply.github.com
+        GIT_COMMITTER_NAME: wetransform Bot
+        GIT_COMMITTER_EMAIL: 113353961+wetransformer@users.noreply.github.com
+        HK: "0"
+      run: |
+        "${{ github.action_path }}/scripts/merge-back.sh" \
+          --branch "${{ github.head_ref || github.ref_name }}" \
+          --default-branch "${{ github.event.repository.default_branch }}" \
+          --version "${{ steps.release.outputs.new_release_version }}" \
+          --readd "${{ inputs.partial-release-readd }}" \
+          --push-url "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git"
+
+      # Run normal publishing if releasing is not enabled, if the release was skipped or if no release was created
     - name: Publish with Gradle
-      if: ${{ inputs.release != 'true' || steps.release.outputs.new_release_published == 'false' }}
+      if: ${{ inputs.release != 'true' || steps.preflight.outputs.mode == 'skip' || steps.release.outputs.new_release_published == 'false' }}
       shell: bash
       run: ./gradlew ${{ inputs.publish-tasks }}
